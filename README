@@ -34,9 +34,38 @@ loop and poll it.
 
 Look at the example in the simplecoremidi/examples directory.
 
+To create an Output that will send to a Destination device::
+
+    from simplecoreimid import MIDIOutput
+    out = MIDIOutput("Numark ORBIT")
+    out.send([0x90, 60, 127])
+
+To create an Input that can read from a Source device::
+
+    from simplecoreimid import MIDIInput
+    in = MIDIInput("Numark ORBIT")
+    data = in.recv()
+    
+As before, this returns all the midi data read from the Source since
+your last call.  The format of the result is a list of tuples, where
+each is one packet.
+
+    [(144, 40, 127), (128, 41, 0), (144, 41, 127)]
+
 
 Notes
 -----
 
 - It only works on Macs. It will never work on Windows or Linux.
 - It is not configurable.
+
+
+HISTORY
+-------
+
+- cloned from https://github.com/sixohsix/simplecoremidi
+- sheffler added MidiInput, MIDIOutput
+- changed format of receive data to list-of-tuples
+- added example interfacing with Numark ORBIT controller
+
+
