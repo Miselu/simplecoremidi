@@ -1,2 +1,3 @@
-from .core import send_midi, recv_midi, MIDISource, MIDIDestination
+from .core import send_midi, recv_midi, MIDISource, MIDIDestination, MIDIInput, MIDIOutput
+
 
