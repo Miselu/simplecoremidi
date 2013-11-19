@@ -1,4 +1,10 @@
-# with threads
+# Simple example of grabbing MIDI packets from a Numark ORBIT controller, and sending
+# noteOn and noteOff messages out to the Numark ORBIT to blink the buttons a random color
+# as they are pressed.
+
+# This example uses two Python threads: one for reading from the ORBIT controller, and one
+# for writing to the ORBIT controller.  A Queue is used to send messages from one thread to
+# the other.  A signal handler allows the program to be quit by hitting ^C.
 
 import sys
 import simplecoremidi
