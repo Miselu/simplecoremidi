@@ -8,26 +8,8 @@ class MIDIInput(object):
         else:
             self._input = cfuncs.find_input(input_name)
 
-    def recv_raw(self):
-        if self._input:
-            raw = cfuncs.recv_midi_from_input(self._input)
-            return raw
-        else:
-            return ()
-
     def recv(self):
-        if self._input:
-            raw = cfuncs.recv_midi_from_input(self._input)
-            result = [ ]
-            i = 0
-            while (i < len(raw)):
-                pktlen = raw[i]
-                pktdata = raw[i+1:i+1+pktlen]
-                result.append(pktdata)
-                i += (pktlen + 1)
-            return result
-        else:
-            return ()
+        return cfuncs.recv_midi_from_input(self._input)
 
 
 class MIDIOutput(object):
@@ -59,26 +41,8 @@ class MIDIDestination(object):
             dest_name = "unnamed destination"
         self._dest = cfuncs.create_destination(dest_name)
 
-    def recv_raw(self):
-        if self._dest:
-            raw = cfuncs.recv_midi(self._dest)
-            return raw
-        else:
-            return ()
-
     def recv(self):
-        if self._dest:
-            raw = cfuncs.recv_midi(self._dest)
-            result = [ ]
-            i = 0
-            while (i < len(raw)):
-                pktlen = raw[i]
-                pktdata = raw[i+1:i+1+pktlen]
-                result.append(pktdata)
-                i += (pktlen + 1)
-            return result
-        else:
-            return ()
+        return cfuncs.recv_midi(self._dest)
 
 
 _global_midi_source = None
