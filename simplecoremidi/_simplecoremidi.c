@@ -17,7 +17,7 @@ static struct module_state _state;
 #endif
 
 
-#define DEBUG 1
+#define DEBUG 0
 
 struct _SCMMIDIDestination {
   MIDIEndpointRef midiDestination;
