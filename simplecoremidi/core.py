@@ -11,6 +11,9 @@ class MIDIInput(object):
     def recv(self):
         return cfuncs.recv_midi_from_input(self._input)
 
+    @staticmethod
+    def enumerate():
+        return cfuncs.enumerate_inputs()
 
 class MIDIOutput(object):
     def __init__(self, output_name=None):
@@ -22,6 +25,10 @@ class MIDIOutput(object):
     def send(self, midi_data):
         assert isinstance(midi_data, tuple) or isinstance(midi_data, list)
         return cfuncs.send_midi_to_output(self._output, midi_data)
+
+    @staticmethod
+    def enumerate():
+        return cfuncs.enumerate_outputs()
 
 
 class MIDISource(object):

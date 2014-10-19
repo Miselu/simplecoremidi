@@ -233,12 +233,17 @@ SCMCreateMIDISource(PyObject* self, PyObject* args) {
 static PyObject *
 SCMFindMIDIInput(PyObject* self, PyObject* args) {
   MIDIEndpointRef midiSource;
-  char *midiSourceName = PyString_AsString(PyTuple_GetItem(args, 0));
-
+  char *midiSourceName;
   long numSrc = MIDIGetNumberOfSources();
   long idxSrc;
   CFStringRef cfstr;
   const char *str;
+
+#if PY_MAJOR_VERSION >= 3
+    midiSourceName = PyUnicode_AsUTF8AndSize(PyTuple_GetItem(args, 0), NULL);
+#else
+    midiSourceName = PyString_AsString(PyTuple_GetItem(args, 0));
+#endif
 
   for (idxSrc = 0; idxSrc < numSrc; idxSrc++) {
     midiSource = MIDIGetSource(idxSrc);
@@ -272,12 +277,17 @@ SCMFindMIDIInput(PyObject* self, PyObject* args) {
 static PyObject *
 SCMFindMIDIOutput(PyObject* self, PyObject* args) {
   MIDIEndpointRef midiDest;
-  char *midiDestName = PyString_AsString(PyTuple_GetItem(args, 0));
-
+  char *midiDestName;
   long numDest = MIDIGetNumberOfDestinations();
   long idxDest;
   CFStringRef cfstr;
   const char *str;
+
+#if PY_MAJOR_VERSION >= 3
+    midiDestName = PyUnicode_AsUTF8AndSize(PyTuple_GetItem(args, 0), NULL);
+#else
+    midiDestName = PyString_AsString(PyTuple_GetItem(args, 0));
+#endif
 
   for (idxDest = 0; idxDest < numDest; idxDest++) {
     midiDest = MIDIGetDestination(idxDest);
@@ -491,6 +501,82 @@ SCMRecvMidiFromInput(PyObject* self, PyObject* args) {
   return NULL;
 }
 
+static PyObject*
+SCMEnumerateMidiInputSources(PyObject* self) {
+  int i;
+  long n;
+  int status;
+  MIDIEndpointRef source;
+  PyObject *sourceStr;
+  PyObject *sourcesT;
+  CFStringRef cfprop;
+  const char *prop;
+
+  n = MIDIGetNumberOfSources();
+
+  sourcesT = PyTuple_New(n);
+
+  for (i = 0; i < n; i++) {
+    source = MIDIGetSource(i);
+    prop = "";
+
+    if (source) {
+      status = MIDIObjectGetStringProperty(source, kMIDIPropertyName, &cfprop);
+      if (status == 0) {
+        prop = CFStringGetCStringPtr(cfprop, kCFStringEncodingMacRoman);
+      }
+    }
+
+#if PY_MAJOR_VERSION >= 3
+    sourceStr = PyUnicode_FromString(prop);
+#else
+    sourceStr = PyString_FromString(prop);
+#endif
+
+    PyTuple_SetItem(sourcesT, i, sourceStr);
+  }
+
+  return sourcesT;
+}
+
+static PyObject*
+SCMEnumerateMidiOutputDestinations(PyObject* self) {
+  int i;
+  long n;
+  int status;
+  MIDIEndpointRef destination;
+  PyObject *destinationStr;
+  PyObject *destinationsT;
+  CFStringRef cfprop;
+  const char *prop;
+
+  n = MIDIGetNumberOfDestinations();
+
+  destinationsT = PyTuple_New(n);
+
+  for (i = 0; i < n; i++) {
+    destination = MIDIGetDestination(i);
+    prop = "";
+
+    if (destination) {
+      status = MIDIObjectGetStringProperty(destination, kMIDIPropertyName, &cfprop);
+      if (status == 0) {
+        prop = CFStringGetCStringPtr(cfprop, kCFStringEncodingMacRoman);
+      }
+    }
+
+#if PY_MAJOR_VERSION >= 3
+    destinationStr = PyUnicode_FromString(prop);
+#else
+    destinationStr = PyString_FromString(prop);
+#endif
+
+    PyTuple_SetItem(destinationsT, i, destinationStr);
+  }
+
+  return destinationsT;
+}
+
 #if defined(DEBUG) && (DEBUG != 0)
 static void print_midi_source_info()
 {
@@ -606,6 +692,8 @@ static PyMethodDef SimpleCoreMidiMethods[] = {
   {"create_source", SCMCreateMIDISource, METH_VARARGS, "Create a new MIDI source."},
   {"create_destination", SCMCreateMIDIDestination, METH_VARARGS, "Create a new MIDI destination."},
 
+  {"enumerate_inputs", (PyCFunction)SCMEnumerateMidiInputSources, METH_NOARGS, "Enumerate possible MIDI input sources by name."},
+  {"enumerate_outputs", (PyCFunction)SCMEnumerateMidiOutputDestinations, METH_NOARGS, "Enumerate possible MIDI output destinations by name."},
   {"find_input", SCMFindMIDIInput, METH_VARARGS, "Find a MIDI source by name."},
   {"find_output", SCMFindMIDIOutput, METH_VARARGS, "Find a MIDI destination by name."},
   {"recv_midi_from_input", SCMRecvMidiFromInput, METH_VARARGS, "Receive midi data tuple from an input."},
