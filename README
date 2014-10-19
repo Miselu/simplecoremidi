@@ -36,21 +36,31 @@ Look at the example in the simplecoremidi/examples directory.
 
 To create an Output that will send to a Destination device::
 
-    from simplecoreimid import MIDIOutput
+    from simplecoremidi import MIDIOutput
     out = MIDIOutput("Numark ORBIT")
     out.send([0x90, 60, 127])
 
 To create an Input that can read from a Source device::
 
-    from simplecoreimid import MIDIInput
+    from simplecoremidi import MIDIInput
     in = MIDIInput("Numark ORBIT")
     data = in.recv()
-    
-As before, this returns all the midi data read from the Source since
-your last call.  The format of the result is a list of tuples, where
-each is one packet.
 
-    [(144, 40, 127), (128, 41, 0), (144, 41, 127)]
+As before, this returns all the midi data read from the Source since
+your last call.  The format of the result is a tuple.
+
+    (144, 40, 127, 128, 41, 0, 144, 41, 127)
+
+To enumerate Inputs::
+    from simplecoremidi import MIDIInput
+    print MIDIInput.enumerate()
+
+The result will be a tuple of names.
+
+('Bus 1', 'IAC Bus 2', 'Python MIDI', 'Session 3' )
+
+Likewise, simplecoremidi.MIDIOutput.enumerate() will return a tuple
+containing names of available MIDIOutputs.
 
 
 Notes
@@ -65,7 +75,9 @@ HISTORY
 
 - cloned from https://github.com/sixohsix/simplecoremidi
 - sheffler added MidiInput, MIDIOutput
-- changed format of receive data to list-of-tuples
 - added example interfacing with Numark ORBIT controller
-
+- tymm merged with changes to sixohsix tree (python3 support, etc)
+- removed sheffler's list-of-tuples format of received data
+- added error handling code & raise exceptions instead of segfaulting in asst. cases
+- added ability to enumerate MIDI inputs & outputs
 
