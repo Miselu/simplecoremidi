@@ -17,7 +17,7 @@ static struct module_state _state;
 #endif
 
 
-#define DEBUG 0
+#define DEBUG 1
 
 struct _SCMMIDIDestination {
   MIDIEndpointRef midiDestination;
@@ -135,7 +135,9 @@ SCMMIDIInputCreate(CFStringRef midiInputName, MIDIEndpointRef midiSource) {
   int status;
   status = MIDIPortConnectSource(inputRef->midiInputPort, midiSource, (void*)55);
   if (status) {
-    fprintf(stderr, "Midi Port Connect Failed");
+#if defined(DEBUG) && (DEBUG != 0)
+    fprintf(stderr, "Midi Port Connect Failed.\n");
+#endif
 
     MIDIPortDispose(inputRef->midiInputPort);
     CFRelease(inputRef->receivedMidi);
@@ -173,8 +175,10 @@ SCMMIDIOutputCreate(MIDIEndpointRef midiDest) {
   outputRef->dest = midiDest;
 
   if ((status = MIDIOutputPortCreate(SCMGlobalMIDIClient(), CFSTR("OuTpUt"), &(outputRef->midiOutputPort))) != 0) {
+#if defined(DEBUG) && (DEBUG != 0)
       fprintf(stderr, "Error trying to create MIDI output port: %d\n", status);
       // printf("%s\n", GetMacOSStatusErrorString(status));
+#endif
       CFAllocatorDeallocate(NULL, outputRef);
       outputRef = NULL;;
     }
@@ -207,7 +211,7 @@ SCMCreateMIDISource(PyObject* self, PyObject* args) {
 #if PY_MAJOR_VERSION >= 3
                               PyUnicode_AsUTF8AndSize(PyTuple_GetItem(args, 0), NULL),
 #else
-			      PyString_AsString(PyTuple_GetItem(args, 0)),
+                              PyString_AsString(PyTuple_GetItem(args, 0)),
 #endif
                               kCFStringEncodingUTF8);
   status = MIDISourceCreate(SCMGlobalMIDIClient(), midiSourceName, &midiSource);
@@ -248,7 +252,10 @@ SCMFindMIDIInput(PyObject* self, PyObject* args) {
 
       SCMMIDIInputRef inputRef = SCMMIDIInputCreate(cfstr, midiSource);
       if (inputRef != NULL) {
-          return PyCapsule_New((void*)inputRef, NULL, SCMMIDIInputDispose);
+        return PyCapsule_New((void*)inputRef, NULL, SCMMIDIInputDispose);
+      } else {
+        PyErr_SetString(PyExc_IOError, "Unable to create MIDIInput.");
+        return NULL;
       }
     }
   }
@@ -285,6 +292,9 @@ SCMFindMIDIOutput(PyObject* self, PyObject* args) {
       SCMMIDIOutputRef outputRef = SCMMIDIOutputCreate(midiDest);
       if (outputRef != NULL) {
           return PyCapsule_New((void*)outputRef, NULL, SCMMIDIOutputDispose);
+      } else {
+        PyErr_SetString(PyExc_IOError, "Unable to create MIDIOutput.");
+        return NULL;
       }
     }
   }
@@ -327,7 +337,12 @@ SCMSendMidi(PyObject* self, PyObject* args) {
   pkt = MIDIPacketListAdd(pktList, 1024+100, pkt, now, nBytes, midiDataToSend);
 
   if (pkt == NULL || MIDIReceived(midiSource, pktList)) {
-    printf("failed to send the midi.\n");
+#if defined(DEBUG) && (DEBUG != 0)
+    fprintf(stderr, "failed to send the midi.\n");
+#endif
+
+    PyErr_SetString(PyExc_IOError, "Unable to send MIDI data.");
+    return NULL;
   }
 
   Py_INCREF(Py_None);
@@ -350,34 +365,44 @@ SCMSendMidiToOutput(PyObject* self, PyObject* args) {
 
   scmOutput = (SCMMIDIOutputRef) PyCapsule_GetPointer(PyTuple_GetItem(args, 0), NULL);
 
-  midiData = PyTuple_GetItem(args, 1);
-  nBytes = PySequence_Size(midiData);
+  if (scmOutput != NULL) {
+      midiData = PyTuple_GetItem(args, 1);
+      nBytes = PySequence_Size(midiData);
 
-  for (i = 0; i < nBytes; i++) {
-    PyObject* midiByte;
+      for (i = 0; i < nBytes; i++) {
+        PyObject* midiByte;
 
-    midiByte = PySequence_GetItem(midiData, i);
+        midiByte = PySequence_GetItem(midiData, i);
 #if PY_MAJOR_VERSION >= 3
-    midiDataToSend[i] = PyLong_AsLong(midiByte);
+        midiDataToSend[i] = PyLong_AsLong(midiByte);
 #else
-    midiDataToSend[i] = PyInt_AsLong(midiByte);
+        midiDataToSend[i] = PyInt_AsLong(midiByte);
 #endif
-  }
+      }
 
-  now = mach_absolute_time();
-  pkt = MIDIPacketListInit(pktList);
-  pkt = MIDIPacketListAdd(pktList, 1024+100, pkt, now, nBytes, midiDataToSend);
+      now = mach_absolute_time();
+      pkt = MIDIPacketListInit(pktList);
+      pkt = MIDIPacketListAdd(pktList, 1024+100, pkt, now, nBytes, midiDataToSend);
 
 #if defined(DEBUG) && (DEBUG != 0)
-  fprintf(stderr, "sending...\n");
+      fprintf(stderr, "sending...\n");
 #endif
 
-  if (pkt == NULL || MIDISend(scmOutput->midiOutputPort, scmOutput->dest, pktList)) {
-    printf("failed to send the midi.\n");
+      if (pkt == NULL || MIDISend(scmOutput->midiOutputPort, scmOutput->dest, pktList)) {
+#if defined(DEBUG) && (DEBUG != 0)
+        fprintf(stderr, "failed to send the midi.\n");
+#endif
+
+        PyErr_SetString(PyExc_IOError, "Unable to send MIDI data.");
+        return NULL;
+      }
+
+      Py_INCREF(Py_None);
+      return Py_None;
   }
 
-  Py_INCREF(Py_None);
-  return Py_None;
+  PyErr_SetString(PyExc_IOError, "Invalid MIDIOutput.");
+  return NULL;
 }
 
 
@@ -391,7 +416,7 @@ SCMCreateMIDIDestination(PyObject* self, PyObject* args) {
 #if PY_MAJOR_VERSION >= 3
                               PyUnicode_AsUTF8AndSize(PyTuple_GetItem(args, 0), NULL),
 #else
-			      PyString_AsString(PyTuple_GetItem(args, 0)),
+                              PyString_AsString(PyTuple_GetItem(args, 0)),
 #endif
                               kCFStringEncodingUTF8);
   destRef = SCMMIDIDestinationCreate(midiDestinationName);
@@ -409,21 +434,26 @@ SCMRecvMidi(PyObject* self, PyObject* args) {
   SCMMIDIDestinationRef destRef
     = (SCMMIDIDestinationRef) PyCapsule_GetPointer(PyTuple_GetItem(args, 0), NULL);
 
-  numBytes = CFDataGetLength(destRef->receivedMidi);
+  if (destRef != NULL) {
+      numBytes = CFDataGetLength(destRef->receivedMidi);
 
-  receivedMidiT = PyTuple_New(numBytes);
-  bytePtr = CFDataGetMutableBytePtr(destRef->receivedMidi);
-  for (i = 0; i < numBytes; i++, bytePtr++) {
+      receivedMidiT = PyTuple_New(numBytes);
+      bytePtr = CFDataGetMutableBytePtr(destRef->receivedMidi);
+      for (i = 0; i < numBytes; i++, bytePtr++) {
 #if PY_MAJOR_VERSION >= 3
-    PyObject* midiByte = PyLong_FromLong(*bytePtr);
+        PyObject* midiByte = PyLong_FromLong(*bytePtr);
 #else
-    PyObject* midiByte = PyInt_FromLong(*bytePtr);
+        PyObject* midiByte = PyInt_FromLong(*bytePtr);
 #endif
-    PyTuple_SetItem(receivedMidiT, i, midiByte);
+        PyTuple_SetItem(receivedMidiT, i, midiByte);
+      }
+
+      CFDataDeleteBytes(destRef->receivedMidi, CFRangeMake(0, numBytes));
+      return receivedMidiT;
   }
 
-  CFDataDeleteBytes(destRef->receivedMidi, CFRangeMake(0, numBytes));
-  return receivedMidiT;
+  PyErr_SetString(PyExc_IOError, "Invalid MIDIDestination.");
+  return NULL;
 }
 
 /*
@@ -439,21 +469,26 @@ SCMRecvMidiFromInput(PyObject* self, PyObject* args) {
   SCMMIDIInputRef inputRef
     = (SCMMIDIInputRef) PyCapsule_GetPointer(PyTuple_GetItem(args, 0), NULL);
 
-  numBytes = CFDataGetLength(inputRef->receivedMidi);
+  if (inputRef != NULL) {
+      numBytes = CFDataGetLength(inputRef->receivedMidi);
 
-  receivedMidiT = PyTuple_New(numBytes);
-  bytePtr = CFDataGetMutableBytePtr(inputRef->receivedMidi);
-  for (i = 0; i < numBytes; i++, bytePtr++) {
+      receivedMidiT = PyTuple_New(numBytes);
+      bytePtr = CFDataGetMutableBytePtr(inputRef->receivedMidi);
+      for (i = 0; i < numBytes; i++, bytePtr++) {
 #if PY_MAJOR_VERSION >= 3
-    PyObject* midiByte = PyLong_FromLong(*bytePtr);
+        PyObject* midiByte = PyLong_FromLong(*bytePtr);
 #else
-    PyObject* midiByte = PyInt_FromLong(*bytePtr);
+        PyObject* midiByte = PyInt_FromLong(*bytePtr);
 #endif
-    PyTuple_SetItem(receivedMidiT, i, midiByte);
+        PyTuple_SetItem(receivedMidiT, i, midiByte);
+      }
+
+      CFDataDeleteBytes(inputRef->receivedMidi, CFRangeMake(0, numBytes));
+      return receivedMidiT;
   }
 
-  CFDataDeleteBytes(inputRef->receivedMidi, CFRangeMake(0, numBytes));
-  return receivedMidiT;
+  PyErr_SetString(PyExc_IOError, "Invalid MIDIInput.");
+  return NULL;
 }
 
 #if defined(DEBUG) && (DEBUG != 0)
